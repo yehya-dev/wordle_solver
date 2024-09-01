@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Solver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4caf50;
+            --secondary-color: #f44336;
+            --background-color: #f0f2f5;
+            --text-color: #1a1a1a;
+            --border-color: #d3d6da;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text-color);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .instructions {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .instructions ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .instructions li {
+            margin-bottom: 0.5rem;
+        }
+
+        .example-box {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            line-height: 1.5rem;
+            text-align: center;
+            font-weight: bold;
+            margin-right: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .not-in-word {
+            background-color: #787c7e;
+            color: #ffffff;
+        }
+
+        .correct-position {
+            background-color: #6aaa64;
+            color: #ffffff;
+        }
+
+        .wrong-position {
+            background-color: #c9b458;
+            color: #ffffff;
+        }
+
+        .wordle-board {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 5px;
+            margin-bottom: 1.5rem;
+        }
+
+        .word-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .letter-box {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #ffffff;
+            color: var(--text-color);
+            caret-color: transparent; /* Hide the text cursor */
+            user-select: none; /* Prevent text selection */
+        }
+
+        .letter-box:focus {
+            outline: none; /* Remove the focus outline */
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5); /* Add blue outline */
+        }
+
+        .letter-box:hover {
+            transform: scale(1.05);
+        }
+
+        .letter-box[data-state="NOT_IN_WORD"] {
+            background-color: #787c7e;
+            color: #ffffff;
+            border-color: #787c7e;
+        }
+
+        .letter-box[data-state="CORRECT_POSITION"] {
+            background-color: #6aaa64;
+            color: #ffffff;
+            border-color: #6aaa64;
+        }
+
+        .letter-box[data-state="WRONG_POSITION"] {
+            background-color: #c9b458;
+            color: #ffffff;
+            border-color: #c9b458;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        #solveButton {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        #solveButton:hover {
+            background-color: #45a049;
+        }
+
+        #clearButton {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        #clearButton:hover {
+            background-color: #da190b;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .loading::after {
+            content: "...";
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { content: "."; }
+            33% { content: ".."; }
+            66% { content: "..."; }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .letter-box {
+                font-size: 1.2rem;
+            }
+
+            button {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wordle Solver</h1>
+        <div class="instructions">
+            <p>1. Enter your Wordle guesses in the grid below.</p>
+            <p>2. Click on each letter to change its color:</p>
+            <ul>
+                <li><span class="example-box not-in-word">A</span> Gray: Letter not in word</li>
+                <li><span class="example-box correct-position">B</span> Green: Correct letter and position</li>
+                <li><span class="example-box wrong-position">C</span> Yellow: Correct letter, wrong position</li>
+            </ul>
+            <p>3. Click "Solve" to get possible solutions.</p>
+        </div>
+        <div class="wordle-board" id="wordleBoard"></div>
+        <div class="button-container">
+            <button id="solveButton">Solve</button>
+            <button id="clearButton">Clear Board</button>
+        </div>
+        <div id="result"></div>
+        <div class="loading" id="loading">Solving</div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script src="engine.js"></script>
+    <script>
+        const wordleBoard = document.getElementById('wordleBoard');
+        const solveButton = document.getElementById('solveButton');
+        const clearButton = document.getElementById('clearButton');
+        const resultDiv = document.getElementById('result');
+        const loadingDiv = document.getElementById('loading');
+        const toastDiv = document.getElementById('toast');
+        const states = ['NOT_IN_WORD', 'CORRECT_POSITION', 'WRONG_POSITION'];
+
+        let globalWordList = [];
+
+        async function loadWordList() {
+            try {
+                const response = await fetch('five_letter_words_sm');
+                const text = await response.text();
+                globalWordList = text.split('\n').map(word => word.toUpperCase());
+            } catch (error) {
+                console.error('Error loading word list:', error);
+                showToast('Error loading word list. Please try again.');
+            }
+        }
+
+        function createBoard() {
+            for (let i = 0; i < 6; i++) {
+                const wordRow = document.createElement('div');
+                wordRow.className = 'word-row';
+                for (let j = 0; j < 5; j++) {
+                    const letterBox = document.createElement('div');
+                    letterBox.className = 'letter-box';
+                    letterBox.dataset.state = 'NOT_IN_WORD';
+                    letterBox.addEventListener('click', toggleState);
+                    letterBox.addEventListener('input', handleInput);
+                    letterBox.addEventListener('keydown', handleKeydown);
+                    letterBox.contentEditable = true;
+                    wordRow.appendChild(letterBox);
+                }
+                wordleBoard.appendChild(wordRow);
+            }
+        }
+
+        function toggleState(event) {
+            const letterBox = event.target;
+            if (letterBox.textContent.trim() === '') {
+                showToast('Please enter a letter before changing the color.');
+                return;
+            }
+            const currentState = letterBox.dataset.state || 'NOT_IN_WORD';
+            const currentIndex = states.indexOf(currentState);
+            const nextIndex = (currentIndex + 1) % states.length;
+            const nextState = states[nextIndex];
+            letterBox.dataset.state = nextState;
+        }
+
+        function handleInput(event) {
+            const input = event.target;
+            input.textContent = input.textContent.toUpperCase().slice(0, 1);
+            if (input.textContent.length === 1) {
+                const next = input.nextElementSibling;
+                if (next) next.focus();
+            }
+        }
+
+        function handleKeydown(event) {
+            if (event.key === 'Backspace') {
+                event.preventDefault(); // Prevent default backspace behavior
+                const currentBox = event.target;
+                if (currentBox.textContent === '') {
+                    const prevBox = currentBox.previousElementSibling;
+                    if (prevBox) {
+                        prevBox.textContent = '';
+                        prevBox.focus();
+                    }
+                } else {
+                    currentBox.textContent = '';
+                }
+            } else if (event.key === 'Enter') {
+                const next = event.target.nextElementSibling;
+                if (next) next.focus();
+            }
+        }
+
+        function getBoardState() {
+            const board = [];
+            const rows = wordleBoard.querySelectorAll('.word-row');
+            rows.forEach(row => {
+                const wordState = [];
+                const letterBoxes = row.querySelectorAll('.letter-box');
+                letterBoxes.forEach(box => {
+                    if (box.textContent) {
+                        wordState.push({
+                            letter: box.textContent,
+                            state: box.dataset.state
+                        });
+                    }
+                });
+                if (wordState.length > 0) {
+                    board.push(wordState);
+                }
+            });
+            return board;
+        }
+
+        function clearBoard() {
+            const letterBoxes = wordleBoard.querySelectorAll('.letter-box');
+            letterBoxes.forEach(box => {
+                box.textContent = '';
+                box.dataset.state = 'NOT_IN_WORD';
+            });
+            resultDiv.textContent = '';
+        }
+
+        function showToast(message) {
+            toastDiv.textContent = message;
+            toastDiv.classList.add('show');
+            setTimeout(() => {
+                toastDiv.classList.remove('show');
+            }, 3000);
+        }
+
+        solveButton.addEventListener('click', async () => {
+            const boardState = getBoardState();
+            if (boardState.length === 0) {
+                showToast("Please enter at least one word before solving.");
+                return;
+            }
+
+            loadingDiv.style.display = 'block';
+            resultDiv.textContent = '';
+
+            if (globalWordList.length === 0) {
+                await loadWordList();
+            }
+
+            try {
+                const words = boardState.map(wordState => {
+                    return new WordState(wordState.map(letterState => {
+                        return new LetterState(
+                            letterState.letter,
+                            letterState.state === 'CORRECT_POSITION',
+                            letterState.state === 'CORRECT_POSITION' || letterState.state === 'WRONG_POSITION'
+                        );
+                    }));
+                });
+
+                const boardStateObj = new BoardState(words);
+                const solverEngine = new SolverEngine(boardStateObj, globalWordList);
+                const result = solverEngine.solve(100);
+
+                if (result.length === 0) {
+                    resultDiv.innerHTML = '<h3>No solutions found</h3><p>There are no words that match the given constraints.</p>';
+                } else {
+                    resultDiv.innerHTML = `<h3>Possible solutions:</h3><p>${result.join(', ')}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast("An error occurred while solving. Please try again.");
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        });
+
+        clearButton.addEventListener('click', clearBoard);
+
+        createBoard();
+        loadWordList();
+    </script>
+</body>
+</html>
