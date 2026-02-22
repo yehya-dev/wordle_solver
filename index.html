@@ -285,7 +285,9 @@
             try {
                 const response = await fetch('five_letter_words_sm');
                 const text = await response.text();
-                globalWordList = text.split('\n').map(word => word.toUpperCase());
+                globalWordList = text.split('\n')
+                    .map(word => word.trim().toUpperCase())
+                    .filter(word => word.length === 5 && /^[A-Z]+$/.test(word));
             } catch (error) {
                 console.error('Error loading word list:', error);
                 showToast('Error loading word list. Please try again.');
@@ -302,6 +304,7 @@
                     letterBox.dataset.state = 'NOT_IN_WORD';
                     letterBox.addEventListener('click', toggleState);
                     letterBox.addEventListener('input', handleInput);
+                    letterBox.addEventListener('paste', handlePaste);
                     letterBox.addEventListener('keydown', handleKeydown);
                     letterBox.contentEditable = true;
                     wordRow.appendChild(letterBox);
@@ -325,11 +328,28 @@
 
         function handleInput(event) {
             const input = event.target;
-            input.textContent = input.textContent.toUpperCase().slice(0, 1);
+            const raw = input.textContent.toUpperCase().replace(/[^A-Z]/g, '');
+            input.textContent = raw.slice(0, 1);
             if (input.textContent.length === 1) {
                 const next = input.nextElementSibling;
                 if (next) next.focus();
             }
+        }
+
+        function handlePaste(event) {
+            event.preventDefault();
+            const text = (event.clipboardData?.getData('text') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
+            if (!text) return;
+            const boxes = Array.from(event.target.closest('.word-row').querySelectorAll('.letter-box'));
+            const startIndex = boxes.indexOf(event.target);
+            text.split('').forEach((letter, i) => {
+                const box = boxes[startIndex + i];
+                if (box) {
+                    box.textContent = letter;
+                    box.dataset.state = 'NOT_IN_WORD';
+                    box.focus();
+                }
+            });
         }
 
         function handleKeydown(event) {
@@ -365,7 +385,7 @@
                         });
                     }
                 });
-                if (wordState.length > 0) {
+                if (wordState.length === 5) {
                     board.push(wordState);
                 }
             });
@@ -390,12 +410,30 @@
         }
 
         solveButton.addEventListener('click', async () => {
-            const boardState = getBoardState();
+            const allRows = [];
+            const rows = wordleBoard.querySelectorAll('.word-row');
+            rows.forEach(row => {
+                const wordState = [];
+                row.querySelectorAll('.letter-box').forEach(box => {
+                    const letter = (box.textContent || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 1);
+                    if (letter) {
+                        wordState.push({ letter, state: box.dataset.state });
+                    }
+                });
+                if (wordState.length > 0) allRows.push(wordState);
+            });
+            const boardState = allRows.filter(row => row.length === 5);
             if (boardState.length === 0) {
-                showToast("Please enter at least one word before solving.");
+                showToast(allRows.length > 0
+                    ? "Please complete your guesses (5 letters each) before solving."
+                    : "Please enter at least one word before solving.");
                 return;
             }
+            if (allRows.length > boardState.length) {
+                showToast("Incomplete rows were ignored.");
+            }
 
+            solveButton.disabled = true;
             loadingDiv.style.display = 'block';
             resultDiv.textContent = '';
 
@@ -428,6 +466,7 @@
                 showToast("An error occurred while solving. Please try again.");
             } finally {
                 loadingDiv.style.display = 'none';
+                solveButton.disabled = false;
             }
         });
 
